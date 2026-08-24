@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.env
+.venv
+
+# Large Datasets (Doctor CSV must NOT be committed to Git)
+data/*.csv
+*.csv
+!data/.gitkeep
+
+# MongoDB / DB
+*.dump
+*.tar.gz
+
+# Spark runtime & warehouse
+metastore_db/
+derby.log
+spark-warehouse/
+*.out
+
+# Logs & Testing
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+sample_inspection.json
