@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unified Single Entry Point for Midterm Hybrid Data Pipeline.
 Orchestrates the entire end-to-end data lifecycle:
 1. File Discovery & Metadata.
@@ -17,7 +17,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
-from config.settings import DEFAULT_BATCH_SIZE
+from config.settings import DEFAULT_BATCH_SIZE, MONGO_DB_NAME
 from src.mongo_setup import setup_mongodb_collections
 from src.file_router import inspect_and_route, ENGINE_PYTHON_BATCH, ENGINE_PYSPARK
 from src.batch_loader import load_csv_to_raw_batch
@@ -32,15 +32,17 @@ def run_pipeline(
     file_path: str,
     custom_run_id: str = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
-    reset_db: bool = False
+    reset_db: bool = False,
+    db_name: str = MONGO_DB_NAME
 ) -> Dict[str, Any]:
     """
     Executes the complete Hybrid Data Pipeline from a single unified entry point.
     """
     overall_start_time = time.perf_counter()
+    target_db_name = db_name or MONGO_DB_NAME
 
-    # Step 1: Ensure MongoDB collections and indexes are initialized
-    setup_mongodb_collections(drop_existing=reset_db)
+    # Step 1: Ensure MongoDB collections and indexes are initialized in target DB
+    setup_mongodb_collections(db_name=target_db_name, drop_existing=reset_db)
 
     # Step 2: File Router Decision
     routing_decision = inspect_and_route(file_path, custom_run_id=custom_run_id)
@@ -50,16 +52,16 @@ def run_pipeline(
 
     # Step 3: Raw ELT Load (Load First, Transform Later)
     if selected_engine == ENGINE_PYTHON_BATCH:
-        load_summary = load_csv_to_raw_batch(file_path, id_run, batch_size=batch_size)
+        load_summary = load_csv_to_raw_batch(file_path, id_run, batch_size=batch_size, db_name=target_db_name)
         partitions_info = 1
     elif selected_engine == ENGINE_PYSPARK:
-        load_summary = load_csv_to_raw_spark(file_path, id_run)
+        load_summary = load_csv_to_raw_spark(file_path, id_run, db_name=target_db_name)
         partitions_info = load_summary.get("partitions", 8)
     else:
         raise ValueError(f"Unknown engine: {selected_engine}")
 
     # Step 4: Streaming Cleaning, Classification & Idempotent Upsert
-    elt_summary = run_elt_transform_and_classify(id_run, batch_size=batch_size)
+    elt_summary = run_elt_transform_and_classify(id_run, db_name=target_db_name, batch_size=batch_size)
 
     total_pipeline_time = time.perf_counter() - overall_start_time
     total_read_rows = load_summary["read_rows"]
@@ -68,6 +70,7 @@ def run_pipeline(
     # Step 5: Consolidate Metrics
     metrics = {
         "run_id": id_run,
+        "database_name": target_db_name,
         "file_name": routing_decision["file_name"],
         "file_size_mb": file_size_mb,
         "threshold_mb": routing_decision["threshold_mb"],
@@ -98,6 +101,7 @@ def run_pipeline(
     logger.info("PIPELINE EXECUTION COMPLETED SUCCESSFULLY")
     logger.info("=" * 70)
     logger.info(f"Run ID:               {metrics['run_id']}")
+    logger.info(f"Database:             {metrics['database_name']}")
     logger.info(f"Engine:               {metrics['used_engine']} ({metrics['file_size_mb']} MB)")
     logger.info(f"Total Rows:           {metrics['read_rows']:,}")
     logger.info(f"Valid:                {metrics['count_valid']:,}")
@@ -116,15 +120,17 @@ def main():
     parser = argparse.ArgumentParser(description="Midterm Hybrid Data Pipeline Main Runner.")
     parser.add_argument("--input", "-i", default="data/orders_sample_100k.csv", help="Input CSV path")
     parser.add_argument("--run-id", help="Optional run id")
+    parser.add_argument("--db-name", default=MONGO_DB_NAME, help="Target MongoDB Database Name")
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Batch size")
     parser.add_argument("--reset-db", action="store_true", help="Reset collections before running")
     args = parser.parse_args()
 
     try:
-        run_pipeline(args.input, args.run_id, args.batch_size, args.reset_db)
+        run_pipeline(args.input, args.run_id, args.batch_size, args.reset_db, db_name=args.db_name)
     except Exception as e:
         logger.error(f"Pipeline failed: {e}", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
+
