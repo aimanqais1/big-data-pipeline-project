@@ -1,7 +1,10 @@
 ﻿"""
 MongoDB setup and initialization module for the Midterm Data Pipeline.
 Configures database connection, verifies accessibility, sets up collections,
-and creates the required Unique Index on id_order in orders_validated.
+and creates the required Unique Indexes:
+- orders_validated: Unique Index on STABLE_BUSINESS_KEY (id_order).
+- orders_quarantine: Unique Compound Index on (id_run, source_row_number) for Idempotent Quarantine.
+- orders_raw: Non-unique Index on id_run for fast query without blocking raw ingestion.
 """
 import sys
 import logging
@@ -48,7 +51,7 @@ def setup_mongodb_collections(db_name: str = MONGO_DB_NAME, drop_existing: bool 
     Initialize required collections and indexes.
     - orders_raw: NO unique indexes, allows dirty data load first.
     - orders_validated: Unique index on STABLE_BUSINESS_KEY (id_order).
-    - orders_quarantine: Index on run_id for fast audit/querying.
+    - orders_quarantine: Unique compound index on (id_run, source_row_number) to ensure quarantine idempotency.
     """
     client = get_mongo_client()
     if not verify_connection(client):
@@ -62,19 +65,22 @@ def setup_mongodb_collections(db_name: str = MONGO_DB_NAME, drop_existing: bool 
         db[VALIDATED_COLLECTION].drop()
         db[QUARANTINE_COLLECTION].drop()
 
-    # 1. Raw collection: Ensure no unique constraints
+    # 1. Raw collection: Non-unique index on id_run for fast streaming
     raw_col = db[RAW_COLLECTION]
-    # Create non-unique index on id_run for query efficiency
-    raw_col.create_index([("id_run", ASCENDING)], unique=False)
+    raw_col.create_index([("id_run", ASCENDING)], unique=False, name="idx_id_run")
 
     # 2. Validated collection: Unique Index on id_order (Enforces business entity stability)
     val_col = db[VALIDATED_COLLECTION]
     val_col.create_index([(STABLE_BUSINESS_KEY, ASCENDING)], unique=True, name="uniq_id_order")
 
-    # 3. Quarantine collection: Index on run_id and order_id (non-unique)
+    # 3. Quarantine collection: Unique Compound Index on (id_run, source_row_number) for idempotency
     quar_col = db[QUARANTINE_COLLECTION]
-    quar_col.create_index([("id_run", ASCENDING)], unique=False)
-    quar_col.create_index([(STABLE_BUSINESS_KEY, ASCENDING)], unique=False)
+    quar_col.create_index(
+        [("id_run", ASCENDING), ("source_row_number", ASCENDING)],
+        unique=True,
+        name="uniq_quarantine_run_row"
+    )
+    quar_col.create_index([(STABLE_BUSINESS_KEY, ASCENDING)], unique=False, name="idx_quar_order_id")
 
     indexes_created = {
         RAW_COLLECTION: [idx["name"] for idx in raw_col.list_indexes()],

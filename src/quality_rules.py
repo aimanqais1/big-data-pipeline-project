@@ -4,6 +4,7 @@ Implements 9 deterministic, auditable, and testable cleaning rules.
 Enforces strict ELT validation:
 - Safe deterministic corrections produce an Audit Trail entry.
 - Unsafe / ambiguous malformed values trigger specific Quarantine Error Codes.
+- Safe numeric parsing: Never silently masks corrupted strings ("ABC") as 0.0.
 """
 import re
 import json
@@ -177,7 +178,7 @@ def normalize_currency_and_text(val_str: str, default_currency: str = "YER") -> 
         })
         current_val = without_commas
 
-    # 5. Parse to float
+    # 5. Parse to float safely
     try:
         cleaned_str = current_val.strip()
         numeric_val = float(cleaned_str)
@@ -399,24 +400,25 @@ def normalize_text_and_synonyms(field_name: str, val_str: str) -> Tuple[str, Lis
 
     return cleaned, corrections
 
-def safe_float(val: Any) -> float:
-    """Helper to convert int/float/string to float safely, handling Arabic digits."""
+def parse_item_number(val: Any) -> Tuple[Optional[float], bool]:
+    """
+    Safely parses numeric fields inside items_json.
+    Returns (numeric_value, is_valid).
+    If val is corrupted non-numeric string (e.g. "ABC"), returns (None, False).
+    """
+    if val is None:
+        return 0.0, True
     if isinstance(val, (int, float)):
-        return float(val)
-    if not val:
-        return 0.0
+        return float(val), True
     s_val = str(val).strip()
+    if s_val == "":
+        return 0.0, True
     norm_s, _ = normalize_arabic_digits(s_val)
     norm_s = norm_s.replace(",", "")
     try:
-        return float(norm_s)
+        return float(norm_s), True
     except ValueError:
-        return 0.0
-
-def safe_int(val: Any) -> int:
-    """Helper to convert int/float/string to int safely."""
-    f = safe_float(val)
-    return int(f)
+        return None, False
 
 def validate_and_recalculate_order(
     raw_total_str: str,
@@ -429,7 +431,7 @@ def validate_and_recalculate_order(
     """
     corrections = []
 
-    # 1. Validate items_json
+    # 1. Validate items_json string
     if not items_json_str or items_json_str.strip() in ["", "null", "none", "not-json"]:
         return None, None, corrections, ERR_CORRUPTED_ITEMS_JSON
 
@@ -453,24 +455,33 @@ def validate_and_recalculate_order(
         if not isinstance(item, dict):
             return None, None, corrections, ERR_CORRUPTED_ITEMS_JSON
         
-        qty = safe_int(item.get("qty", 0))
-        unit_price = safe_float(item.get("unit_price", 0.0))
-        item_total = safe_float(item.get("total", 0.0))
+        raw_qty = item.get("qty", 0)
+        raw_unit_price = item.get("unit_price", 0.0)
+        raw_total = item.get("total", 0.0)
 
-        if qty < 0:
+        parsed_qty, qty_ok = parse_item_number(raw_qty)
+        parsed_price, price_ok = parse_item_number(raw_unit_price)
+        parsed_total, total_ok = parse_item_number(raw_total)
+
+        if not (qty_ok and price_ok and total_ok):
+            return None, None, corrections, ERR_CORRUPTED_ITEMS_JSON
+
+        qty_int = int(parsed_qty)
+
+        if qty_int < 0:
             has_ambiguous_negative = True
 
-        if qty > 0 and unit_price > 0:
-            calculated_items_total += (qty * unit_price)
+        if qty_int > 0 and parsed_price > 0:
+            calculated_items_total += (qty_int * parsed_price)
         else:
-            calculated_items_total += item_total
+            calculated_items_total += parsed_total
 
         cleaned_items_list.append({
             "sku": str(item.get("sku", "")),
             "name": str(item.get("name", "")),
-            "qty": qty,
-            "unit_price": unit_price,
-            "total": item_total
+            "qty": qty_int,
+            "unit_price": parsed_price,
+            "total": parsed_total
         })
 
     if has_ambiguous_negative and calculated_items_total <= 0:
@@ -527,7 +538,7 @@ def process_and_classify_record(raw_doc: Dict[str, Any]) -> Dict[str, Any]:
     corrections: List[Dict[str, Any]] = []
     error_codes: List[str] = []
 
-    # 1. Order ID (Stable Business Key) Validation
+    # 1. Order ID Validation
     order_id_raw = raw_record.get("order_id", "")
     if not order_id_raw or str(order_id_raw).strip() in ["", "null", "none", "nan"]:
         error_codes.append(ERR_MISSING_ORDER_ID)

@@ -1,0 +1,42 @@
+{
+  "run_id": "run_bdefcb550d69",
+  "file_name": "orders_sample_100k.csv",
+  "file_size_mb": 41.77,
+  "threshold_mb": 200.0,
+  "used_engine": "python_batch",
+  "engine_reason": "File size (41.77 MB) is <= threshold (200.0 MB). Selected Python Streaming Batch engine for low memory footprint and rapid single-node processing.",
+  "read_rows": 100000,
+  "loaded_raw": 100000,
+  "count_valid": 79835,
+  "count_corrected": 14618,
+  "count_quarantine": 5547,
+  "count_inserted": 93806,
+  "count_updated": 647,
+  "count_unchanged": 0,
+  "consistency_equation": "PASS",
+  "batch_size": 10000,
+  "partitions": 1,
+  "seconds_elapsed": 52.159,
+  "throughput": 1917.21,
+  "rule_case_counts": {
+    "RULE_01": 3347,
+    "RULE_03": 1129,
+    "RULE_06": 2217,
+    "RULE_07": 2277,
+    "RULE_02": 1146,
+    "RULE_04": 1080,
+    "RULE_05": 2324,
+    "RULE_09": 1641
+  },
+  "error_case_counts": {
+    "CORRUPTED_ITEMS_JSON": 2021,
+    "MISSING_CUSTOMER_ID": 1411,
+    "MULTIPLE_CONFLICTING_ERRORS": 674,
+    "UNSAFE_EMAIL": 1343,
+    "MISSING_ORDER_ID": 721,
+    "EMPTY_ITEMS": 677,
+    "INVALID_IMPOSSIBLE_DATE": 722
+  },
+  "status": "SUCCESS",
+  "generated_at": "2026-08-24T03:23:57.599514+00:00"
+}
