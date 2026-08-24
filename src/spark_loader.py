@@ -1,4 +1,4 @@
-﻿"""
+"""
 PySpark Distributed DataFrame Loader for Midterm Data Pipeline.
 Processes large CSV datasets using Spark DataFrame API, enforces an Explicit Schema
 (StringType for all raw fields to ensure data fidelity), constructs ELT raw documents,
@@ -125,6 +125,8 @@ def load_csv_to_raw_spark(
             .option("header", "true")
             .option("encoding", "UTF-8")
             .option("multiLine", "false")
+            .option("quote", "\"")
+            .option("escape", "\"")
             .load(str(path_obj))
         )
 
