@@ -1,4 +1,4 @@
-﻿# Final Verification & Compliance Checklist
+# Final Verification & Compliance Checklist
 **Project:** Midterm Hybrid Data Pipeline (Big Data Practical)  
 **Author:** Individual Student Project Submission  
 **Verification Date:** 2026-08-24  
@@ -73,4 +73,7 @@
 
 ## 4. Final Verdict
 
-**OVERALL SYSTEM VERDICT: ALL CORE REQUIREMENTS VERIFIED & PASS (100%)**
+**OVERALL VERDICT:**  
+**CORE PIPELINE REQUIREMENTS VERIFIED ON THE 100K TEST DATASET.**  
+**FULL-SCALE 12.65 GB EXECUTION REMAINS PENDING.**
+
