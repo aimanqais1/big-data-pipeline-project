@@ -1,6 +1,6 @@
 # Midterm Data Pipeline — Execution Report
-**Run ID:** `run_bdefcb550d69`  
-**Generated At:** `2026-08-24T03:23:57.599514+00:00`  
+**Run ID:** `viva_verification_run_01`  
+**Generated At:** `2026-08-24T03:31:05.035812+00:00`  
 **Status:** **SUCCESS**
 
 ---
@@ -38,8 +38,8 @@
 ---
 
 ## 4. Performance & Throughput
-- **Total Pipeline Time:** `52.159 seconds`
-- **Overall Throughput:** `1,917.21 records/second`
+- **Total Pipeline Time:** `53.295 seconds`
+- **Overall Throughput:** `1,876.34 records/second`
 
 ---
 
@@ -62,9 +62,9 @@
 ```json
 {
   "CORRUPTED_ITEMS_JSON": 2021,
-  "MISSING_CUSTOMER_ID": 1411,
   "MULTIPLE_CONFLICTING_ERRORS": 674,
   "UNSAFE_EMAIL": 1343,
+  "MISSING_CUSTOMER_ID": 1411,
   "MISSING_ORDER_ID": 721,
   "EMPTY_ITEMS": 677,
   "INVALID_IMPOSSIBLE_DATE": 722

@@ -1,7 +1,7 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
-*.class
+*$py.class
 *.so
 .Python
 env/
@@ -37,11 +37,13 @@ data/*.csv
 *.dump
 *.tar.gz
 
-# Spark runtime & warehouse
+# Spark runtime & Jars
 metastore_db/
 derby.log
 spark-warehouse/
 *.out
+jars/
+*.jar
 
 # Logs & Testing
 *.log

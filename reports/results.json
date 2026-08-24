@@ -1,5 +1,5 @@
 {
-  "run_id": "run_bdefcb550d69",
+  "run_id": "viva_verification_run_01",
   "file_name": "orders_sample_100k.csv",
   "file_size_mb": 41.77,
   "threshold_mb": 200.0,
@@ -16,8 +16,8 @@
   "consistency_equation": "PASS",
   "batch_size": 10000,
   "partitions": 1,
-  "seconds_elapsed": 52.159,
-  "throughput": 1917.21,
+  "seconds_elapsed": 53.295,
+  "throughput": 1876.34,
   "rule_case_counts": {
     "RULE_01": 3347,
     "RULE_03": 1129,
@@ -30,13 +30,13 @@
   },
   "error_case_counts": {
     "CORRUPTED_ITEMS_JSON": 2021,
-    "MISSING_CUSTOMER_ID": 1411,
     "MULTIPLE_CONFLICTING_ERRORS": 674,
     "UNSAFE_EMAIL": 1343,
+    "MISSING_CUSTOMER_ID": 1411,
     "MISSING_ORDER_ID": 721,
     "EMPTY_ITEMS": 677,
     "INVALID_IMPOSSIBLE_DATE": 722
   },
   "status": "SUCCESS",
-  "generated_at": "2026-08-24T03:23:57.599514+00:00"
+  "generated_at": "2026-08-24T03:31:05.035812+00:00"
 }
