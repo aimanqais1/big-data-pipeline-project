@@ -1,6 +1,6 @@
 # Final Verification & Compliance Checklist
 **Project:** Midterm Hybrid Data Pipeline (Big Data Practical)  
-**Author:** Individual Student Project Submission  
+**Author:** ENG\AIMAN QAIS 
 **Verification Date:** 2026-08-24  
 **Test Dataset:** `data/orders_sample_100k.csv` (100,000 rows, 41.77 MB) & `orders_huge_mixed_quality.csv` (30,000,000 rows, 12.65 GB)
 
