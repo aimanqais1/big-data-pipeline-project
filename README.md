@@ -264,7 +264,30 @@ Live state of MongoDB collections in `midterm_ecommerce_30m_production` verified
 
 ---
 
-## 10. Project Directory Structure
+---
+
+## 10. Exploratory Data Analysis (Jupyter Notebook)
+
+A standalone, interactive Jupyter Notebook is provided in [`notebooks/01_data_exploration_30m.ipynb`](notebooks/01_data_exploration_30m.ipynb) for academic evaluation, project demonstration, and in-depth data exploration of the 30M production run.
+
+### 10.1 Key Visualizations from the 30M Production Analysis
+
+| Figure Description | Visual Preview |
+|---|---|
+| **Quality Distribution (30M)**<br>Valid (79.22%), Corrected (15.18%), Quarantined (5.60%) | ![Quality Distribution](docs/screenshots/eda/quality_distribution_30m.png) |
+| **Deterministic Rules Distribution**<br>Trigger frequency across RULE_01 to RULE_10 | ![Rule Distribution](docs/screenshots/eda/rule_distribution_30m.png) |
+| **Quarantine Error Breakdown**<br>Distribution of defect categories (Corrupted JSON, Missing IDs, Unsafe Emails) | ![Quarantine Reasons](docs/screenshots/eda/quarantine_reasons_30m.png) |
+| **MongoDB Collection Dynamics**<br>Raw (30M) vs Validated (28.12M unique) vs Quarantine (1.68M) & Upsert Breakdown | ![Collection Counts](docs/screenshots/eda/collection_counts_30m.png) |
+| **Runtime & Throughput Benchmarks**<br>Spark Ingestion (~13 min) vs Streaming ELT (~263 min) | ![Runtime Breakdown](docs/screenshots/eda/runtime_breakdown_30m.png) |
+| **System Resource Headroom**<br>Peak RAM (21.85 GB / 68.0%) & Disk D Headroom | ![Resource Usage](docs/screenshots/eda/resource_usage_30m.png) |
+| **100K Sample vs. 30M Production Parity**<br>Quality distribution consistency across volume scales | ![100K vs 30M](docs/screenshots/eda/100k_vs_30m.png) |
+
+### 10.2 Running the EDA Notebook
+```bash
+jupyter notebook notebooks/01_data_exploration_30m.ipynb
+```
+
+## 11. Project Directory Structure
 
 ```text
 big-data-pipeline-project/
@@ -318,7 +341,7 @@ big-data-pipeline-project/
 
 ---
 
-## 11. Installation & How to Run
+## 12. Installation & How to Run
 
 ### 11.1 Environment Requirements
 - **Python:** 3.12+ (`pip install -r requirements.txt`)
@@ -347,7 +370,7 @@ pytest -v
 
 ---
 
-## 12. GitHub-Safe Repository Notice
+## 13. GitHub-Safe Repository Notice
 
 > **Important Note:** To maintain repository hygiene and conform to standard repository size constraints:
 > - Large CSV datasets (`data/orders_30m.csv`, `orders_huge_mixed_quality.csv`, `data/orders_sample_100k.csv`) are **explicitly excluded** via `.gitignore`.
