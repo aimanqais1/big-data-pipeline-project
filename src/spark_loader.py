@@ -12,13 +12,14 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql import SparkSession, Window
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.functions import (
     lit,
     col,
     struct,
-    monotonically_increasing_id,
+    spark_partition_id,
+    row_number,
     current_timestamp,
     date_format
 )
@@ -78,6 +79,8 @@ def create_spark_session(
         .appName(app_name)
         .config("spark.driver.extraClassPath", classpath)
         .config("spark.executor.extraClassPath", classpath)
+        .config("spark.driver.memory", "4g")
+        .config("spark.executor.memory", "4g")
         .config("spark.mongodb.write.connection.uri", mongo_write_uri)
         .config("spark.mongodb.read.connection.uri", mongo_write_uri)
         .config("spark.sql.session.timeZone", "UTC")
@@ -133,23 +136,42 @@ def load_csv_to_raw_spark(
         input_partitions = df_csv.rdd.getNumPartitions()
         logger.info(f"Input partitions count: {input_partitions}")
 
-        # 2. Build ELT Raw Document Structure
+        # 2. Compute Deterministic & Memory-Safe Sequential source_row_number (Int32, 1..N)
+        df_with_pid = df_csv.withColumn("_pid", spark_partition_id())
+        part_counts = df_with_pid.groupBy("_pid").count().orderBy("_pid").collect()
+
+        offsets = []
+        cum = 0
+        for row in part_counts:
+            offsets.append((int(row["_pid"]), int(cum)))
+            cum += int(row["count"])
+
+        offsets_df = spark.createDataFrame(offsets, ["_pid", "_offset"])
+        w = Window.partitionBy("_pid").orderBy(lit(1))
+
+        df_indexed = (
+            df_with_pid.join(offsets_df, on="_pid")
+            .withColumn("source_row_number", (col("_offset") + row_number().over(w)).cast(IntegerType()))
+            .drop("_pid", "_offset")
+        )
+
+        # 3. Build ELT Raw Document Structure
         # Wrap all 17 CSV columns inside a struct named 'raw_record'
-        df_raw = df_csv.select(
+        df_raw = df_indexed.select(
             lit(id_run).alias("id_run"),
             lit(path_obj.name).alias("source_file"),
-            (monotonically_increasing_id() + 1).alias("source_row_number"),
+            col("source_row_number"),
             date_format(current_timestamp(), "yyyy-MM-dd'T'HH:mm:ss.SSSSSSxxx").alias("ingested_at"),
             lit("pyspark").alias("engine_used"),
             struct([col(c) for c in RAW_CSV_COLUMNS]).alias("raw_record")
         )
 
-        # 3. Write parallel to MongoDB orders_raw via Connector
+        # 4. Write parallel to MongoDB orders_raw via Connector
         logger.info("Writing DataFrame to MongoDB orders_raw via Spark Connector...")
         df_raw.write.format("mongodb").mode("append").save()
 
-        # 4. Measure metrics
-        record_count = df_csv.count()
+        # 5. Measure metrics
+        record_count = cum
         elapsed_seconds = time.perf_counter() - start_time
         throughput = record_count / elapsed_seconds if elapsed_seconds > 0 else 0.0
 

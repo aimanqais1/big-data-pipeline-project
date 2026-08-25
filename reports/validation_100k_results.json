@@ -1,0 +1,21 @@
+{
+  "run_id": "validation_100k_final",
+  "database_name": "midterm_ecommerce",
+  "file_name": "orders_sample_100k.csv",
+  "file_size_mb": 41.77,
+  "threshold_mb": 200.0,
+  "used_engine": "python_batch",
+  "engine_reason": "File size (41.77 MB) is within threshold (200.0 MB). Selected Python streaming batch engine.",
+  "read_rows": 100000,
+  "loaded_raw": 100000,
+  "count_valid": 79158,
+  "count_corrected": 15295,
+  "count_quarantine": 5547,
+  "count_inserted": 93806,
+  "count_updated": 647,
+  "count_unchanged": 0,
+  "consistency_equation": "PASS",
+  "batch_size": 10000,
+  "partitions": 1,
+  "status": "SUCCESS"
+}

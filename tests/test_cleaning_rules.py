@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit Tests for Quality and Cleaning Rules (src/quality_rules.py).
 Tests all 9 deterministic cleaning rules, audit trail tracking, and quarantine error codes.
 """
@@ -11,8 +11,9 @@ from src.quality_rules import (
     normalize_date,
     normalize_text_and_synonyms,
     validate_and_recalculate_order,
+    normalize_payment_amount,
     process_and_classify_record,
-    RULE_01, RULE_02, RULE_03, RULE_04, RULE_05, RULE_06, RULE_07, RULE_08, RULE_09,
+    RULE_01, RULE_02, RULE_03, RULE_04, RULE_05, RULE_06, RULE_07, RULE_08, RULE_09, RULE_10,
     ERR_MISSING_ORDER_ID, ERR_MISSING_CUSTOMER_ID, ERR_INVALID_IMPOSSIBLE_DATE,
     ERR_CORRUPTED_ITEMS_JSON, ERR_UNKNOWN_PRICE, ERR_UNSAFE_EMAIL
 )
@@ -150,3 +151,59 @@ def test_classification_end_to_end():
     assert res_quar["classification"] == "quarantined"
     assert ERR_MISSING_CUSTOMER_ID in res_quar["error_codes"]
     assert ERR_CORRUPTED_ITEMS_JSON in res_quar["error_codes"]
+
+def test_rule_10_negative_payment_matching_total():
+    """RULE_10: Negative payment matching total is corrected to positive and audited."""
+    clean_pay, curr, corr, err = normalize_payment_amount("-22000.0", 22000.0)
+    assert err is None
+    assert clean_pay == 22000.0
+    assert len(corr) == 1
+    assert corr[0]["rule_code"] == RULE_10
+    assert corr[0]["field"] == "payment_amount"
+    assert corr[0]["original_value"] == "-22000.0"
+    assert corr[0]["corrected_value"] == "22000.0"
+
+def test_rule_10_negative_payment_mismatch_not_blindly_corrected():
+    """RULE_10: Negative payment NOT matching total is NOT converted to positive."""
+    clean_pay, curr, corr, err = normalize_payment_amount("-50000.0", 22000.0)
+    assert clean_pay is None
+    assert not any(c["rule_code"] == RULE_10 for c in corr)
+
+def test_rule_10_positive_payment_unchanged():
+    """Positive payment remains unchanged without RULE_10 correction."""
+    clean_pay, curr, corr, err = normalize_payment_amount("22000.0", 22000.0)
+    assert err is None
+    assert clean_pay == 22000.0
+    assert not any(c["rule_code"] == RULE_10 for c in corr)
+
+def test_rule_10_end_to_end_classification():
+    """End-to-end classification of a record where only payment_amount is negative."""
+    doc = {
+        "id_run": "run_rule10_test",
+        "source_file": "test.csv",
+        "source_row_number": 1,
+        "raw_record": {
+            "order_id": "ORD-101",
+            "order_date": "2025-01-15T10:00:00",
+            "status": "مؤكد",
+            "customer_id": "CUST-1",
+            "customer_name": "أحمد علي",
+            "customer_phone": "771234567",
+            "customer_email": "ahmed@example.com",
+            "city": "صنعاء",
+            "district": "السبعين",
+            "delivery_type": "عادي",
+            "delivery_cost": "2000.0",
+            "payment_method": "محفظة إلكترونية",
+            "payment_status": "تم الدفع",
+            "payment_amount": "-22000.0",
+            "currency": "YER",
+            "total_amount": "22000.0",
+            "items_json": '[{"sku":"SKU-1","qty":2,"unit_price":10000.0,"total":20000.0}]'
+        }
+    }
+    res = process_and_classify_record(doc)
+    assert res["classification"] == "corrected"
+    assert res["payment_amount"] == 22000.0
+    assert any(c["rule_code"] == RULE_10 for c in res["corrections"])
+

@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -28,10 +28,15 @@ wheels/
 .env
 .venv
 
-# Large Datasets (Doctor CSV must NOT be committed to Git)
+# Large Datasets (CSV datasets must NOT be committed to Git)
 data/*.csv
 *.csv
 !data/.gitkeep
+
+# Evidence & Local Benchmarks (Kept outside Git)
+project_evidence/
+scratch/
+*.json.bak
 
 # MongoDB / DB
 *.dump
@@ -58,3 +63,4 @@ Thumbs.db
 .vscode/
 *.swp
 sample_inspection.json
+

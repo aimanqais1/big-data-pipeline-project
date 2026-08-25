@@ -1,4 +1,4 @@
-﻿"""
+"""
 Quality and Cleaning Rules Module for Midterm Data Pipeline.
 Implements 9 deterministic, auditable, and testable cleaning rules.
 Enforces strict ELT validation:
@@ -26,6 +26,7 @@ RULE_06 = "RULE_06"  # Email double-@ and repeated dot fix
 RULE_07 = "RULE_07"  # Date normalization
 RULE_08 = "RULE_08"  # Trim & synonym normalization
 RULE_09 = "RULE_09"  # Order total recalculation
+RULE_10 = "RULE_10"  # Negative payment sign correction
 
 # --------------------------------------------------------------------------
 # Quarantine Error Codes
@@ -187,6 +188,49 @@ def normalize_currency_and_text(val_str: str, default_currency: str = "YER") -> 
         return numeric_val, currency, corrections, None
     except ValueError:
         return None, currency, corrections, ERR_UNKNOWN_PRICE
+
+def normalize_payment_amount(
+    payment_str: Any,
+    valid_total_amount: Optional[float] = None
+) -> Tuple[Optional[float], str, List[Dict[str, Any]], Optional[str]]:
+    """
+    Normalizes payment amount and applies RULE_10 (Negative Payment Sign Correction).
+    - If payment_amount is negative AND abs(payment_amount) == valid_total_amount:
+      corrects to positive abs(payment_amount) and logs RULE_10 in corrections[].
+    - If payment_amount is negative AND does NOT match valid_total_amount:
+      does NOT guess or convert; returns None.
+    - If payment_amount is positive:
+      standard currency/numeral normalization (RULE_01 to RULE_04).
+    """
+    if payment_str is None or str(payment_str).strip() in ["", "null", "none", "???"]:
+        return None, "YER", [], None
+
+    orig_str = str(payment_str).strip()
+
+    # Apply currency and text normalization first
+    clean_val, currency, corrections, err = normalize_currency_and_text(orig_str)
+
+    # Check if raw value was negative (RULE_10 condition)
+    if err == ERR_AMBIGUOUS_NEGATIVE_VALUE:
+        # Check raw negative numeric value
+        norm_digits, _ = normalize_arabic_digits(orig_str)
+        cleaned_num = norm_digits.replace("ريال", "").replace(",", "").strip()
+        try:
+            neg_num = float(cleaned_num)
+            if neg_num < 0 and valid_total_amount is not None and abs(abs(neg_num) - valid_total_amount) < 0.01:
+                corrected_val = abs(neg_num)
+                corrections.append({
+                    "rule_code": RULE_10,
+                    "field": "payment_amount",
+                    "original_value": orig_str,
+                    "corrected_value": str(corrected_val),
+                    "reason": f"Corrected negative payment sign to match order total ({valid_total_amount})"
+                })
+                return corrected_val, currency, corrections, None
+        except ValueError:
+            pass
+
+    return clean_val, currency, corrections, err
 
 def normalize_phone(phone_str: str) -> Tuple[Optional[str], List[Dict[str, Any]], Optional[str]]:
     """
@@ -626,8 +670,11 @@ def process_and_classify_record(raw_doc: Dict[str, Any]) -> Dict[str, Any]:
     if total_err:
         error_codes.append(total_err)
 
-    # 9. Payment Amount Normalization
-    clean_pay_amt, currency_code, pay_corr, _ = normalize_currency_and_text(raw_record.get("payment_amount", ""))
+    # 9. Payment Amount Normalization (RULE_02 & RULE_10)
+    clean_pay_amt, currency_code, pay_corr, _ = normalize_payment_amount(
+        raw_record.get("payment_amount", ""),
+        clean_total
+    )
     corrections.extend(pay_corr)
 
     # ----------------------------------------------------------------------
