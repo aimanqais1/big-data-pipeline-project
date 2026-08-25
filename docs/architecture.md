@@ -1,6 +1,6 @@
 ﻿# Data Pipeline Architecture & Engineering Design Document
 **Project:** Hybrid Data Pipeline (Midterm)  
-**Author:** Individual Student Submission  
+**Author:** ENG\AIMAN QAIS  
 **Target Platform:** Python 3.12, PySpark 4.2.0, MongoDB 7.0, Java 17 Temurin LTS
 
 ---
