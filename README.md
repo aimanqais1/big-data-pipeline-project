@@ -286,6 +286,26 @@ A standalone, interactive Jupyter Notebook is provided in [`notebooks/01_data_ex
 ```bash
 jupyter notebook notebooks/01_data_exploration_30m.ipynb
 ```
+### 10.3 Raw Data Exploratory Analysis (Pre-Transformation Investigation)
+
+A dedicated, academic Exploratory Data Analysis notebook is provided in [`notebooks/02_raw_data_exploration_30m.ipynb`](notebooks/02_raw_data_exploration_30m.ipynb) (**Author:** `ENG\AIMAN QAIS`). This notebook investigates the **RAW 30M dataset as received**, empirically discovering data quality anomalies, analyzing duplicate business keys, and systematically motivating each data cleaning rule (RULE_01 through RULE_10).
+
+#### Two Complementary Analysis Notebooks:
+1. [`notebooks/01_data_exploration_30m.ipynb`](notebooks/01_data_exploration_30m.ipynb): **Verified Production Pipeline EDA** — Analyzes the final production run, classification distributions, MongoDB collection dynamics, and system throughput.
+2. [`notebooks/02_raw_data_exploration_30m.ipynb`](notebooks/02_raw_data_exploration_30m.ipynb): **Raw Data First Investigation** — Analyzes the raw 12.65 GB CSV, missing fields, duplicate business keys, negative payment adjustments, and rule motivations.
+
+#### Key Visual Discoveries from Raw Data Exploration:
+
+| Visual Artifact | Description & Academic Takeaway | Preview |
+|---|---|---|
+| **Raw Dataset Volume & Scale** | Compares 12.65 GB CSV volume against 200 MB threshold motivating PySpark engine routing. | ![Dataset Profile](docs/screenshots/eda_raw/01_dataset_profile.png) |
+| **Missing & Defective Fields** | Identifies critical missing identifiers (`customer_id`: 419.5K, `order_id`: 209.4K, malformed items: 839.9K). | ![Missing Values](docs/screenshots/eda_raw/02_missing_values.png) |
+| **Duplicate Business Keys** | Analyzes 199.6K duplicate `id_order` occurrences resolved via idempotent upserts (`UpdateOne`, `upsert=True`). | ![Duplicate Orders](docs/screenshots/eda_raw/03_duplicate_orders.png) |
+| **Negative Financial Adjustments** | Discovers 209.1K negative payment amounts matching order totals, motivating deterministic **RULE_10**. | ![Negative Financials](docs/screenshots/eda_raw/04_negative_financials.png) |
+| **Items JSON Payload Quality** | Segregates 29.16M valid JSON arrays from 629.9K corrupted strings and 209.9K empty arrays. | ![Items Quality](docs/screenshots/eda_raw/09_items_quality.png) |
+| **Text & Encoding Defects** | Quantifies Eastern Arabic digits (1.00M), phone formatting (670.1K), and email syntax errors (667.7K). | ![Text Quality](docs/screenshots/eda_raw/10_text_quality.png) |
+| **Data Quality Summary** | Summarizes 4.72M field corrections vs 1.68M quarantined records vs 199.6K duplicate updates. | ![Quality Summary](docs/screenshots/eda_raw/11_data_quality_summary.png) |
+| **Empirical Rule Motivation** | Full defect-to-rule mapping motivating RULE_01 through RULE_10 and quarantine architecture. | ![Rule Motivation](docs/screenshots/eda_raw/12_rule_motivation.png) |
 
 ## 11. Project Directory Structure
 
