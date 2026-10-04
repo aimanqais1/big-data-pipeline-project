@@ -384,7 +384,7 @@ python -m src.main --input data/orders_sample_100k.csv --reset-db
 # 2. Run 30M Dataset (routes to PySpark Distributed Engine):
 python -m src.main --input data/orders_30m.csv --reset-db
 
-# 3. Run PyTest Test Suite (19 tests):
+# 3. Run PyTest Test Suite (67 tests):
 pytest -v
 ```
 
@@ -396,3 +396,102 @@ pytest -v
 > - Large CSV datasets (`data/orders_30m.csv`, `orders_huge_mixed_quality.csv`, `data/orders_sample_100k.csv`) are **explicitly excluded** via `.gitignore`.
 > - Raw benchmark execution logs and per-minute resource monitor dumps are preserved locally in `project_evidence/` outside Git.
 > - The repository contains all production source code, unit test suites, configuration templates, consolidated execution reports, and presentation screenshots in `docs/screenshots/`.
+
+---
+
+## 14. Phase 2 — Scheduled Jobs & Analytical Automation (`src/jobs/`)
+
+Phase 2 provides a deterministic, test-safe Scheduled Jobs subsystem (`src/jobs/job_runner.py` and `src/jobs/scheduler.py`) that automates Materialized View synchronization and analytical report generation without duplicating underlying query or aggregation logic.
+
+### 14.1 Registered Scheduled Jobs & Schedules
+
+| Job Name | Schedule (`cron_expression` / Interval) | Underlying Phase 2 Function(s) Reused | Purpose & Output |
+| :--- | :--- | :--- | :--- |
+| **`refresh_materialized_views`** | `*/15 * * * *`<br>*(Every 15 minutes / `900s`)* | `src.aggregations.materialized_views.refresh_all_materialized_views(mode="incremental")` | Incrementally refreshes `daily_sales_summary` and `top_products_summary` using `mv_refresh_state` watermarks and `mv_order_digest` diffing (returns `NO_OP` when no orders changed). |
+| **`generate_aggregation_report`** | `0 0 * * *`<br>*(Daily at 00:00 UTC / `86400s`)* | `src.aggregations.reports.execute_aggregation_by_name` across all 5 reports (`daily_sales_summary`, `sales_by_city`, `payment_method_analysis`, `order_status_distribution`, `top_products`) | Executes all 5 analytical reports on `orders_validated` and atomically writes `reports/scheduled_aggregation_report.json` and `reports/scheduled_aggregation_report.md` (preserving the last valid report if an error occurs). |
+
+### 14.2 How to List & Manually Execute Scheduled Jobs (CLI)
+
+```bash
+# 1. List all registered scheduled jobs and their schedule definitions:
+python -m src.jobs.scheduler --list
+
+# 2. Manually execute Job 1 (Incremental Materialized View Refresh):
+python -m src.jobs.scheduler --run refresh_materialized_views
+
+# 3. Manually execute Job 2 (Consolidated Aggregation Report Generation):
+python -m src.jobs.scheduler --run generate_aggregation_report
+
+# 4. Manually execute all registered scheduled jobs sequentially:
+python -m src.jobs.scheduler --run-all
+
+# 5. Optional target database override:
+python -m src.jobs.scheduler --run refresh_materialized_views --db-name midterm_ecommerce_100k_final
+```
+
+### 14.3 Structured Logging & Output Locations
+- **Structured Log File:** `reports/logs/scheduled_jobs.log` (also emitted to standard console output).
+  - Every execution logs structured `JOB_START`, `JOB_SUCCESS`, or `JOB_FAILURE` entries with `job`, `started_at`, `ended_at`, `duration_ms`, `status`, and result/error telemetry.
+- **Generated Report Artifacts (Job 2):**
+  - JSON: `reports/scheduled_aggregation_report.json`
+  - Markdown: `reports/scheduled_aggregation_report.md`
+
+---
+
+## 15. Phase 2 — Unified FastAPI Interface (`src/api/`)
+
+Phase 2 provides a unified REST API (`src/api/app.py`, `src/api/routes.py`, `src/api/schemas.py`) that exposes Phase 1 ingestion and all Phase 2 analytical capabilities (indexes, parameterized queries, aggregation reports, materialized views, and scheduled jobs) through a single validated FastAPI application.
+
+### 15.1 Starting the FastAPI Server & Interactive Swagger UI
+
+```bash
+# Start the Uvicorn server locally on port 8000:
+python -m uvicorn src.api.app:app --host 127.0.0.1 --port 8000
+
+# Or run the module directly:
+python -m src.api.app
+```
+
+- **Interactive Swagger UI:** `http://127.0.0.1:8000/docs`
+- **ReDoc Documentation:** `http://127.0.0.1:8000/redoc`
+- **OpenAPI Schema JSON:** `http://127.0.0.1:8000/openapi.json`
+
+### 15.2 Unified API Endpoint Summary
+
+| Method | Path | Delegated Module / Function | Description |
+| :--- | :--- | :--- | :--- |
+| **`GET`** | `/health` | `src.mongo_setup.verify_connection` | Checks API status and active MongoDB connectivity (returns `200` when connected, `503` when unreachable). |
+| **`POST`** | `/ingest` | `src.main.run_pipeline(..., reset_db=False)` | Runs the Phase 1 ingestion pipeline on a validated CSV inside `data/` (`reset_db=False` enforced; `extra="forbid"`). |
+| **`POST`** | `/indexes` | `src.queries.index_manager.create_phase2_indexes` | Idempotently ensures the 3 approved Phase 2 analytical indexes on `orders_validated`. |
+| **`GET`** | `/queries` | `src.queries.order_queries.list_available_queries` | Lists all 5 registered Phase 2 parameterized queries and their supported parameters. |
+| **`GET`** | `/queries/{name}` | `src.queries.order_queries.execute_query_by_name` | Executes a registered query by name with validated query parameters (`limit` bounded `1..500`). |
+| **`GET`** | `/aggregations` | `src.aggregations.reports.list_available_aggregations` | Lists all 5 registered Phase 2 aggregation reports. |
+| **`GET`** | `/aggregations/{name}` | `src.aggregations.reports.execute_aggregation_by_name` | Executes a registered aggregation report by name (`daily_sales_summary`, `sales_by_city`, `payment_method_analysis`, `order_status_distribution`, `top_products`). |
+| **`POST`** | `/refresh-mv` | `src.aggregations.materialized_views.refresh_all_materialized_views` | Triggers incremental Materialized View refresh (`mode="incremental"` default; public API is incremental-only). |
+| **`GET`** | `/jobs` | `src.jobs.job_runner.list_jobs` | Lists all registered Phase 2 scheduled jobs and their schedule metadata. |
+| **`POST`** | `/jobs/{name}/run` | `src.jobs.job_runner.run_job` | Manually executes a registered scheduled job (`refresh_materialized_views` or `generate_aggregation_report`). |
+
+### 15.3 Example API Requests (`curl`)
+
+```bash
+# 1. Health Check
+curl http://127.0.0.1:8000/health
+
+# 2. Ensure Phase 2 Analytical Indexes
+curl -X POST http://127.0.0.1:8000/indexes
+
+# 3. List & Execute a Registered Query
+curl http://127.0.0.1:8000/queries
+curl "http://127.0.0.1:8000/queries/orders_by_city_and_status?city=Sanaa&status=DELIVERED&limit=5"
+
+# 4. List & Execute an Aggregation Report
+curl http://127.0.0.1:8000/aggregations
+curl "http://127.0.0.1:8000/aggregations/top_products?limit=5"
+
+# 5. Refresh Materialized Views (Incremental by default)
+curl -X POST http://127.0.0.1:8000/refresh-mv -H "Content-Type: application/json" -d "{\"mode\": \"incremental\"}"
+
+# 6. List & Trigger a Scheduled Job
+curl http://127.0.0.1:8000/jobs
+curl -X POST http://127.0.0.1:8000/jobs/refresh_materialized_views/run
+```

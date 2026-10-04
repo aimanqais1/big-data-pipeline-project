@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 from pathlib import Path
 
@@ -9,15 +9,23 @@ REPORTS_DIR = BASE_DIR / "reports"
 DOCS_DIR = BASE_DIR / "docs"
 JARS_DIR = BASE_DIR / "jars"
 
-# MongoDB Configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "midterm_ecommerce")
+# MongoDB Configuration (Environment-driven for portability; local Phase 2 defaults preserved)
+DEFAULT_MONGO_HOST = os.getenv("MONGO_HOST", "127.0.0.1")
+DEFAULT_MONGO_PORT = int(os.getenv("MONGO_PORT", "27018"))
+MONGO_URI = os.getenv("MONGO_URI", f"mongodb://{DEFAULT_MONGO_HOST}:{DEFAULT_MONGO_PORT}/")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "midterm_ecommerce_100k_final")
 MONGO_TIMEOUT_MS = int(os.getenv("MONGO_TIMEOUT_MS", "5000"))
 
 # Collection Names
 RAW_COLLECTION = "orders_raw"
 VALIDATED_COLLECTION = "orders_validated"
 QUARANTINE_COLLECTION = "orders_quarantine"
+
+# Materialized View & Refresh Control Collection Names
+DAILY_SALES_MV_COLLECTION = "daily_sales_summary"
+TOP_PRODUCTS_MV_COLLECTION = "top_products_summary"
+MV_ORDER_DIGEST_COLLECTION = "mv_order_digest"
+MV_REFRESH_STATE_COLLECTION = "mv_refresh_state"
 
 # Engine & Processing Thresholds (Single Source of Truth)
 SMALL_FILE_THRESHOLD_MB = float(os.getenv("SMALL_FILE_THRESHOLD_MB", "200.0"))
